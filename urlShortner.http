@@ -1,6 +1,0 @@
-@urlShortner_HostAddress = http://localhost:5160
-
-GET {{urlShortner_HostAddress}}/shorturl/
-Accept: application/json
-
-###

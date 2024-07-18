@@ -1,30 +1,28 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System;
-using System.Collections.Generic;
+using UrlShortener.Models;
 
-namespace urlShortner.Controllers
+namespace UrlShortner.Controllers;
+
+[Authorize(AuthenticationSchemes = $"BasicAuthentication")]
+[ApiController]
+[Route("[controller]")]
+public class NavigateController : ControllerBase
 {
-    [ApiController]
-    [Route("[controller]")]
-    public class NavigateController : ControllerBase
+    private readonly UrlShortenerContext _context;
+    public NavigateController(UrlShortenerContext context)
     {
-        private Dictionary<string, string> urlMappings; // Dictionary to store shortUrl-originalUrl mappings
+        _context = context;
+    }
+    
+    [AllowAnonymous]
+    [HttpGet("{shortUrl}")]
+    public RedirectResult Navigate(string shortUrl)
+    {
+        Console.WriteLine($"request to navigate for {shortUrl}");
 
-        public NavigateController()
-        {
-            urlMappings = new Dictionary<string, string>();
-        }
+        var url = _context.Urls.SingleOrDefault(u => u.ShortenedUrl.Contains(shortUrl));
 
-        [HttpGet("{shortUrl}")]
-        public IActionResult NavigateToShortUrl(string shortUrl)
-        {
-            if (urlMappings.ContainsKey(shortUrl))
-            {
-                string originalUrl = urlMappings[shortUrl];
-                return Redirect(originalUrl); // Redirect the user to the original URL
-            }
-
-            return NotFound(); // Return a 404 Not Found if the shortUrl is not found.
-        }
+        return url == null ? Redirect("https://www.google.com") : Redirect(url.OriginalUrl);
     }
 }

@@ -1,78 +1,74 @@
+using System.Text.Json;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Collections.Generic;
+using UrlShortener.Models;
+using UrlShortner.Models;
 
-namespace urlShortner.Controllers
+namespace UrlShortner.Controllers;
+
+[Authorize(AuthenticationSchemes = $"BasicAuthentication")]
+[ApiController]
+[Route("[controller]")]
+public class ShortUrlsController : ControllerBase
 {
-    [ApiController]
-    [Route("api/[controller]")]
-    public class ShortUrlsController : ControllerBase
+    private readonly UrlShortenerContext _context;
+    public ShortUrlsController(UrlShortenerContext context)
     {
-        private readonly Dictionary<string, string> _urlMappings;
-        private readonly Dictionary<string, int> _urlHits;
+        _context = context;
+    }
+    
+    [HttpPut("{id}")]
+    public string CreateShortUrl(string id, [FromBody] JsonElement body)
+    {
+        var domainName = $"{HttpContext.Request.Scheme}://{HttpContext.Request.Host}";
 
-        public ShortUrlsController()
+        Console.WriteLine($"request to create: {id}, {body.GetProperty("url")}");
+        Url url = new()
         {
-            _urlMappings = new Dictionary<string, string>();
-            _urlHits = new Dictionary<string, int>();
+            OriginalUrl = body.GetProperty("url").ToString(),
+            ShortenedUrl = $"{domainName}/navigate/{Guid.NewGuid()}",
+            UrlId = id,
+            UserId = 0
+        };
+
+        _context.Urls.Add(url);
+        _context.SaveChanges();
+
+        return url.ShortenedUrl;
+    }
+
+    [HttpDelete("{id}")]
+    public string DeleteShortUrl(string id)
+    {
+        Console.WriteLine($"request to delete: {id}");
+
+        var url = _context.Urls.FirstOrDefault(u => string.Equals(u.UrlId, id));
+        if (url != null)
+        {
+            _context.Remove(url);
+            _context.SaveChanges();
+            return "deleted!";
         }
 
-        [HttpPost]
-        public IActionResult CreateShortUrl([FromBody] string longUrl)
+        return "not found!";
+    }
+
+    [HttpGet("{id}")]
+    public Url GetShortUrl(string id)
+    {
+        var url = _context.Urls.SingleOrDefault(u => u.UrlId == id);
+
+        if (url == null)
         {
-            string shortUrl = GenerateShortUrl();
-            _urlMappings[shortUrl] = longUrl;
-            return Ok(shortUrl);
+            return null;
         }
 
-        [HttpDelete("{shortUrl}")]
-        public IActionResult DeleteShortUrl(string shortUrl)
-        {
-            if (_urlMappings.ContainsKey(shortUrl))
-            {
-                _urlMappings.Remove(shortUrl);
-                _urlHits.Remove(shortUrl);
-                return Ok();
-            }
-            else
-            {
-                return NotFound();
-            }
-        }
+        return url;
+    }
 
-        [HttpGet("{shortUrl}")]
-        public IActionResult GetLongUrl(string shortUrl)
-        {
-            if (_urlMappings.ContainsKey(shortUrl))
-            {
-                string longUrl = _urlMappings[shortUrl];
-                return Ok(longUrl);
-            }
-            else
-            {
-                return NotFound();
-            }
-        }
-
-        [HttpGet("{shortUrl}/hits")]
-        public IActionResult GetNumberOfHits(string shortUrl)
-        {
-            if (_urlHits.ContainsKey(shortUrl))
-            {
-                int hits = _urlHits[shortUrl];
-                return Ok(hits);
-            }
-            else
-            {
-                return NotFound();
-            }
-        }
-
-        private string GenerateShortUrl()
-        {
-            // TODO: Implement logic to generate a unique short URL
-            // You can use a library or algorithm to generate a short URL
-            // For simplicity, let's assume we are returning a random string for now
-            return "abc123";
-        }
+    [HttpGet]
+    public List<Url> List()
+    {
+        return _context.Urls.ToList();
     }
 }
